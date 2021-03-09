@@ -45,94 +45,95 @@ def create_bags(dataset='musk1'):
     labels =list( 2 * labels - 1)
     return bags_1, labels
 
-accs = []
-bags, labels = create_bags()
-bags = np.array(bags)
-labels = np.array(labels)
+if __name__ == "__main__":
+    accs = []
+    bags, labels = create_bags()
+    bags = np.array(bags)
+    labels = np.array(labels)
 
-skf = StratifiedKFold(n_splits = 10)
+    skf = StratifiedKFold(n_splits = 10)
 
-for train, test in skf.split(bags, labels):
-    bags_tr = bags[train]
-    y_tr = labels[train]
-    bags_ts = bags[test]
-    y_ts = labels[test]
-    pos_bags = bags_tr[y_tr > 0]
-    neg_bags = bags_tr[y_tr < 0]
+    for train, test in skf.split(bags, labels):
+        bags_tr = bags[train]
+        y_tr = labels[train]
+        bags_ts = bags[test]
+        y_ts = labels[test]
+        pos_bags = bags_tr[y_tr > 0]
+        neg_bags = bags_tr[y_tr < 0]
 
-    pos = MyDataset(pos_bags)
-    neg = MyDataset(neg_bags)
+        pos = MyDataset(pos_bags)
+        neg = MyDataset(neg_bags)
 
-    loader_pos = DataLoader(pos, batch_size = 1)
-    loader_neg = DataLoader(neg, batch_size = 1)
+        loader_pos = DataLoader(pos, batch_size = 1)
+        loader_neg = DataLoader(neg, batch_size = 1)
 
-    epochs = 20
-    mlp = Net(166)
-    mlp.cuda()
-    optimizer = optim.RMSprop(mlp.parapeters())
+        epochs = 20
+        mlp = Net(166)
+        mlp.cuda()
+        optimizer = optim.RMSprop(mlp.parapeters())
 
-    all_losses = []
-    for e in range(epochs):
-        l = .0
-        for idx_p, pbag in enumerate(loader_pos):
-            pbag = pbag.float()
-            pbag = Variable(pbag).type(torch.cuda.FloatTensor)
-            p_scores = mlp.forward(pbag[0])
-            max_p = torch.max(p_scores)
+        all_losses = []
+        for e in range(epochs):
+            l = .0
+            for idx_p, pbag in enumerate(loader_pos):
+                pbag = pbag.float()
+                pbag = Variable(pbag).type(torch.cuda.FloatTensor)
+                p_scores = mlp.forward(pbag[0])
+                max_p = torch.max(p_scores)
 
-            for idx_n, nbag in enumerate(loader_neg):
-                nbag = nbag.float()
-                nbag = Variable(nbag).type(torch.cuda.FloatTensor)
-                n_scores = mlp.forward(nbag[0])
+                for idx_n, nbag in enumerate(loader_neg):
+                    nbag = nbag.float()
+                    nbag = Variable(nbag).type(torch.cuda.FloatTensor)
+                    n_scores = mlp.forward(nbag[0])
 
-                max_n = torch.max(n_scores)
-                z = np.array([0.0])
-                loss\
-                =torch.max(Variable(torch.from_numpy(z)).type(torch.cuda.FloatTens,
-                    (max_n -  max_p + 1)))
+                    max_n = torch.max(n_scores)
+                    z = np.array([0.0])
+                    loss\
+                    =torch.max(Variable(torch.from_numpy(z)).type(torch.cuda.FloatTens,
+                        (max_n -  max_p + 1)))
 
-                l = l + float(loss)
-
-
-                optimizer.zero_grad()
-                loss.backward(retrain_graph = True)
-
-                optimizer.step()
-        all_losses.append(l)
+                    l = l + float(loss)
 
 
-    #testing
-    test = MyDataset(bag_ts)
-    loader_ts = DataLoader(test, batch_size = 1)
-    predictions = []
+                    optimizer.zero_grad()
+                    loss.backward(retrain_graph = True)
 
-    for param in mlp.parameters():
-        param.required_grad = False
-    for idx_ts, tsbag in enumerte(loader_ts):
-        tsbag = tsbag.float()
-        tsbag = Variable(tsbag).type(torch.cuda.FloatTensor)
-        scores = mlp.forward(tsbag[0])
-
-        predictions.append(float(torch.max(scores)))
-    auc = auc_roc(y_ts, predictions)
-    aucs.append(auc)
-    print("AUC=", auc)
+                    optimizer.step()
+            all_losses.append(l)
 
 
-    #scoring
-    f, t, a = metrics.roc_curve(y_ts, predictions)
-    AN = sum(x < 0 for x in y_ts)
-    AP = sum(x > 0 for x in y_te)
-    TN = (1 - f) * AN
-    TP = t * AP
-    Acc2 = (TP + TN) / len(y_ts)
-    acc = max(Acc2)
+        #testing
+        test = MyDataset(bag_ts)
+        loader_ts = DataLoader(test, batch_size = 1)
+        predictions = []
 
-    print ('accuracy=',acc )
-    accs.append(acc)
+        for param in mlp.parameters():
+            param.required_grad = False
+        for idx_ts, tsbag in enumerte(loader_ts):
+            tsbag = tsbag.float()
+            tsbag = Variable(tsbag).type(torch.cuda.FloatTensor)
+            scores = mlp.forward(tsbag[0])
 
-print ("\n\nmean auc=", np.mean(aucs))
-print ("mean accuracy=", np.mean(accs))
-print ("Epochs=", epochs)
+            predictions.append(float(torch.max(scores)))
+        auc = auc_roc(y_ts, predictions)
+        aucs.append(auc)
+        print("AUC=", auc)
+
+
+        #scoring
+        f, t, a = metrics.roc_curve(y_ts, predictions)
+        AN = sum(x < 0 for x in y_ts)
+        AP = sum(x > 0 for x in y_te)
+        TN = (1 - f) * AN
+        TP = t * AP
+        Acc2 = (TP + TN) / len(y_ts)
+        acc = max(Acc2)
+
+        print ('accuracy=',acc )
+        accs.append(acc)
+
+    print ("\n\nmean auc=", np.mean(aucs))
+    print ("mean accuracy=", np.mean(accs))
+    print ("Epochs=", epochs)
 
 
